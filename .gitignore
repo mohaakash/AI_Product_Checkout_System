@@ -18,3 +18,5 @@ Thumbs.db
 *.key
 *.pem
 *.pt
+
+app/models/*
