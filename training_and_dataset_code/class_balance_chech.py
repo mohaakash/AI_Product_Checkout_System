@@ -1,5 +1,7 @@
 import os
 from collections import defaultdict
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Define paths
 annotation_folder = 'A:/Academic/CSE498R/Dataset/labels for check'  # Path to the folder containing YOLO annotation files
@@ -67,3 +69,20 @@ if unbalanced_classes:
         print(f"Class {class_id} ({class_names[class_id]})")
 else:
     print("All classes are balanced.")
+
+# Generate a list of colors for each bar
+colors = plt.cm.tab20(np.linspace(0, 1, len(class_names)))  # Use a colormap to generate distinct colors
+
+# Plotting the bar chart
+plt.figure(figsize=(12, 6))
+bars = plt.bar(class_names, [class_counts[i] for i in range(len(class_names))], color=colors)
+plt.xlabel('Class Names')
+plt.ylabel('Count of Instances')
+plt.title('Class Distribution')
+plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
+plt.tight_layout()  # Adjust layout to make room for the rotated x-axis labels
+
+# Add a legend (optional)
+plt.legend(bars, class_names, bbox_to_anchor=(1.05, 1), loc='upper left')  # Place legend outside the plot
+
+plt.show()
