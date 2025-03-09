@@ -13,7 +13,7 @@ from product_card import ProductCard  # Import the ProductCard class
 from custom_button import CustomButton  # Import the reusable button
 
 # Load YOLO Model
-model = YOLO("app/models/feb13_v11_reg_best.pt")  # Change to your trained YOLOv11 model
+model = YOLO("app/models/march8_yolov11n_best.pt")  # Change to your trained YOLOv11 model
 
 # Define colors for different classes
 CLASS_COLORS = [
