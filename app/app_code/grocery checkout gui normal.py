@@ -2,8 +2,9 @@ import sys
 import csv
 import cv2
 import numpy as np
+import time
 from PyQt5.QtWidgets import (
-    QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QGridLayout, QScrollArea, QFrame, QSlider, QCheckBox
+    QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QGridLayout, QScrollArea, QFrame, QSlider, QCheckBox, QDesktopWidget
 )
 from PyQt5.QtGui import QImage, QPixmap, QColor, QFont, QFontDatabase, QIcon
 from PyQt5.QtCore import QTimer, QThread, pyqtSignal, Qt
@@ -13,7 +14,7 @@ from product_card import ProductCard  # Import the ProductCard class
 from custom_button import CustomButton  # Import the reusable button
 
 # Load YOLO Model
-model = YOLO("feb13_v11_reg_best.pt")  # Change to your trained YOLOv11 model
+model = YOLO("app/models/yolov8m_14march_withgreyscale_best.pt")  # Change to your trained YOLOv11 model
 
 # Define colors for different classes
 CLASS_COLORS = [
@@ -43,7 +44,7 @@ def load_product_details(csv_file):
 PRODUCT_DETAILS = load_product_details("product_details.csv")
 
 class YOLOThread(QThread):
-    result_signal = pyqtSignal(np.ndarray, list)  # Emit annotated image + detected products
+    result_signal = pyqtSignal(np.ndarray, list, float)  # Emit annotated image + detected products + detection time
 
     def __init__(self, frame):
         super().__init__()
@@ -52,6 +53,9 @@ class YOLOThread(QThread):
     def run(self):
         # Resize the frame to 960x720
         self.frame = cv2.resize(self.frame, (960, 720))
+
+        # Start timing
+        start_time = time.time()
 
         # Perform inference
         results = model(self.frame)
@@ -63,13 +67,18 @@ class YOLOThread(QThread):
 
         # Draw Bounding Boxes on image
         annotated_frame = self.draw_bboxes(self.frame.copy(), boxes, class_ids, confidences, detected_products)
-        self.result_signal.emit(annotated_frame, detected_products)  # Send processed frame & detected products list
+
+        # Calculate detection time
+        detection_time = time.time() - start_time
+
+        self.result_signal.emit(annotated_frame, detected_products, detection_time)  # Send processed frame, detected products list, and detection time
 
     def draw_bboxes(self, frame, boxes, class_ids, confidences, detected_products):
-        """Draws bounding boxes and saves detected products."""
+        """Draws bounding boxes with Roboflow-like design."""
         for box, class_id, conf in zip(boxes, class_ids, confidences):
             x_min, y_min, x_max, y_max = map(int, box)
             color = QColor(CLASS_COLORS[class_id % len(CLASS_COLORS)])  # Assign color per class
+            rgb_color = color.getRgb()[:3]  # Get RGB values for OpenCV
 
             # Product Details
             product_name = PRODUCT_DETAILS.get(class_id, {}).get("name", f"Product {class_id}")
@@ -86,21 +95,31 @@ class YOLOThread(QThread):
                 "box": (x_min, y_min, x_max, y_max)  # Store box for removal
             })
 
-            # Draw bounding box with thicker lines
-            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color.getRgb()[:3], thickness=3)  # Increase thickness to 3
+            # Draw semi-transparent black background for the bounding box
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (x_min, y_min), (x_max, y_max), rgb_color, -1)  # Black fill
+            alpha = .15  # Opacity (15% transparency)
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
-            # Add Label with fill and dynamic text color
+            # Draw bounding box with a specific color (e.g., white)
+            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color.getRgb()[:3], thickness=2)
+
+            # Add Label with white text on a semi-transparent black background
             label = f"{product_name} ({weight})"
             text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-            text_x = x_min + (x_max - x_min - text_size[0]) // 2
-            text_y = y_min + (y_max - y_min + text_size[1]) // 2
+            text_x = x_min + 5  # Padding from the left
+            text_y = y_min - 5  # Padding above the bounding box
 
-            # Ensure label is visible with white background
-            cv2.rectangle(frame, (text_x - 5, text_y - text_size[1] - 5), (text_x + text_size[0] + 5, text_y + 5), (255, 255, 255), -1)
-            cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)  # Black text
+            # Draw semi-transparent black background for the text
+            cv2.rectangle(frame, (text_x - 2, text_y - text_size[1] - 2), (text_x + text_size[0] + 2, text_y + 2), rgb_color, -1)
+            alpha = 1 # Opacity (100% transparency)
+            overlay = frame.copy()
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+            # Add white text
+            cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)  # White text
 
         return frame
-
 
 class CameraSettings(QWidget):
     def __init__(self):
@@ -156,6 +175,7 @@ class CameraSettings(QWidget):
         slider.setMinimum(min_value)
         slider.setMaximum(max_value)
         slider.setValue(default_value)
+        slider.setFixedWidth(int(self.width() * 0.8))  # Set slider width to 80% of the parent widget's width
         slider.setStyleSheet("""
             QSlider::groove:horizontal {
                 background: #404040;
@@ -176,6 +196,12 @@ class CameraSettings(QWidget):
         container = QWidget()
         container.setLayout(slider_layout)
         return container
+
+    def resizeEvent(self, event):
+        """Adjusts the slider widths when the widget is resized."""
+        super().resizeEvent(event)
+        for slider in [self.hue_slider, self.saturation_slider, self.brightness_slider, self.contrast_slider]:
+            slider.findChild(QSlider).setFixedWidth(int(self.width() * 0.8))  # Update slider width
 
     def get_hue(self):
         """Returns the current hue value."""
@@ -215,7 +241,16 @@ class GroceryCheckoutApp(QWidget):
 
     def initUI(self):
         self.setWindowTitle("AI Grocery Checkout System")
-        self.setGeometry(0, 0, 1920, 1080)
+
+        # Get the screen size
+        screen = QDesktopWidget().screenGeometry()
+        screen_width = screen.width()
+        screen_height = screen.height()
+
+        # Set the window size to 80% of the screen size
+        self.window_width = int(screen_width * 0.8)
+        self.window_height = int(screen_height * 0.8)
+        self.setGeometry(100, 100, self.window_width, self.window_height)
 
         # Set background color of the main window to dark grey
         self.setStyleSheet("background-color: #2C3035;")
@@ -237,7 +272,7 @@ class GroceryCheckoutApp(QWidget):
         # Company Logo (Top-left corner)
         logo_label = QLabel(self)
         logo_pixmap = QPixmap("app/assets/company_logo.png")  # Replace with the path to your company logo
-        logo_label.setPixmap(logo_pixmap.scaled(200, 50, Qt.KeepAspectRatio))  # Adjust size as needed
+        logo_label.setPixmap(logo_pixmap.scaled(int(self.window_width * 0.1), int(self.window_height * 0.05), Qt.KeepAspectRatio))  # Adjust size as needed
         logo_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         main_layout.addWidget(logo_label, 0, 0, 1, 1)  # Top-left corner
 
@@ -249,7 +284,7 @@ class GroceryCheckoutApp(QWidget):
         main_layout.addWidget(live_camera_label, 1, 0)
 
         self.camera_label = QLabel(self)
-        self.camera_label.setFixedSize(320, 240)  # Smaller size for live camera view
+        self.camera_label.setFixedSize(int(self.window_width * 0.16666666666666666), int(self.window_height * 0.2222222222222222))  # Smaller size for live camera view
         self.camera_label.setStyleSheet("""
             QLabel {
                 border: 5px solid #638D6F;
@@ -261,6 +296,7 @@ class GroceryCheckoutApp(QWidget):
 
         # Camera Settings Section
         self.camera_settings = CameraSettings()
+        self.camera_settings.setFixedWidth(int(self.window_width * 0.2))  # Set width to 20% of the window width
         main_layout.addWidget(self.camera_settings, 3, 0)  # Add camera settings under the live camera view
 
         # Reset Button
@@ -277,7 +313,7 @@ class GroceryCheckoutApp(QWidget):
         main_layout.addWidget(detected_image_label, 1, 1)
 
         self.scanned_label = QLabel(self)
-        self.scanned_label.setFixedSize(960, 720)  # Larger size for detected image view
+        self.scanned_label.setFixedSize(int(self.window_width * 0.5), int(self.window_height * 0.66666666666666666))  # Larger size for detected image view
         self.scanned_label.setStyleSheet("""
             QLabel {
                 border: 5px solid orange;
@@ -308,7 +344,7 @@ class GroceryCheckoutApp(QWidget):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setStyleSheet("background-color: #23272e;")  # Set scroll area background to dark grey
-        scroll_area.setFixedWidth(525)  # Change width as needed
+        scroll_area.setFixedWidth(int(self.window_width * 0.35))  # Change width as needed
 
         self.product_container = QWidget()
         self.product_layout = QVBoxLayout(self.product_container)  # Single column layout
@@ -333,7 +369,7 @@ class GroceryCheckoutApp(QWidget):
                 frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
 
             # Scale down the frame for the live camera view
-            small_frame = cv2.resize(frame, (320, 240))
+            small_frame = cv2.resize(frame, (self.camera_label.width(), self.camera_label.height()))
             small_image = QImage(small_frame.data, small_frame.shape[1], small_frame.shape[0], QImage.Format_RGB888)
             self.camera_label.setPixmap(QPixmap.fromImage(small_image))
 
@@ -369,9 +405,12 @@ class GroceryCheckoutApp(QWidget):
             self.yolo_thread.result_signal.connect(self.display_result)
             self.yolo_thread.start()
 
-    def display_result(self, annotated_frame, detected_products):
+    def display_result(self, annotated_frame, detected_products, detection_time):
         # Store the annotated frame for later use
         self.last_annotated_frame = annotated_frame
+
+        # Resize the annotated frame to fit the scanned_label
+        annotated_frame = cv2.resize(annotated_frame, (self.scanned_label.width(), self.scanned_label.height()))
 
         # Convert annotated frame to QImage
         annotated_image = QImage(annotated_frame.data, annotated_frame.shape[1], annotated_frame.shape[0], QImage.Format_RGB888)
@@ -381,6 +420,33 @@ class GroceryCheckoutApp(QWidget):
             print("Error: Annotated image is null.")
             return
 
+        # Draw the horizontal bar and display the detection time
+        bar_height = 40 # Height of the bar
+        bar_width = 40  # Width of the bar
+        bar_x = 20  # Position at the left with 30px margin
+        bar_y = 20   # Position at the bottom with 10px margin
+
+        # Determine bar color based on detection time
+        if detection_time <= 1:
+            bar_color = (49, 96, 61)  # deepGreen
+        elif detection_time <= 3:
+            bar_color = (255, 167, 79)  # kindaOrange
+        else:
+            bar_color = (210, 61, 45)  # AlmostRed
+
+        # Draw the bar
+        cv2.rectangle(annotated_frame, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), bar_color, -1)
+
+        # Add text indicating the detection time
+        text = f" {detection_time:.2f} sec"
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+        text_x = 40 + (text_size[0] // 2)  # Center text horizontally within the bar
+        text_y = 40 + (text_size[1] // 2)  # Center text vertically within the bar
+        cv2.putText(annotated_frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (105,105,105), 2)
+
+        # Convert the annotated frame with the bar to QImage
+        annotated_image = QImage(annotated_frame.data, annotated_frame.shape[1], annotated_frame.shape[0], QImage.Format_RGB888)
+        
         # Display the annotated image in the scanned_label
         self.scanned_label.setPixmap(QPixmap.fromImage(annotated_image))
 

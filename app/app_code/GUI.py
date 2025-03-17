@@ -2,6 +2,7 @@ import sys
 import csv
 import cv2
 import numpy as np
+import time
 from PyQt5.QtWidgets import (
     QApplication, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, QGridLayout, QScrollArea, QFrame, QSlider, QCheckBox
 )
@@ -13,7 +14,7 @@ from product_card import ProductCard  # Import the ProductCard class
 from custom_button import CustomButton  # Import the reusable button
 
 # Load YOLO Model
-model = YOLO("app/models/march8_yolov11n_best.pt")  # Change to your trained YOLOv11 model
+model = YOLO("app/models/yolov8m_14march_withgreyscale_best.pt")  # Change to your trained YOLOv11 model
 
 # Define colors for different classes
 CLASS_COLORS = [
@@ -43,7 +44,7 @@ def load_product_details(csv_file):
 PRODUCT_DETAILS = load_product_details("product_details.csv")
 
 class YOLOThread(QThread):
-    result_signal = pyqtSignal(np.ndarray, list)  # Emit annotated image + detected products
+    result_signal = pyqtSignal(np.ndarray, list, float)  # Emit annotated image + detected products + detection time
 
     def __init__(self, frame):
         super().__init__()
@@ -52,6 +53,9 @@ class YOLOThread(QThread):
     def run(self):
         # Resize the frame to 960x720
         self.frame = cv2.resize(self.frame, (960, 720))
+
+        # Start timing
+        start_time = time.time()
 
         # Perform inference
         results = model(self.frame)
@@ -63,13 +67,18 @@ class YOLOThread(QThread):
 
         # Draw Bounding Boxes on image
         annotated_frame = self.draw_bboxes(self.frame.copy(), boxes, class_ids, confidences, detected_products)
-        self.result_signal.emit(annotated_frame, detected_products)  # Send processed frame & detected products list
+
+        # Calculate detection time
+        detection_time = time.time() - start_time
+
+        self.result_signal.emit(annotated_frame, detected_products, detection_time)  # Send processed frame, detected products list, and detection time
 
     def draw_bboxes(self, frame, boxes, class_ids, confidences, detected_products):
-        """Draws bounding boxes and saves detected products."""
+        """Draws bounding boxes with Roboflow-like design."""
         for box, class_id, conf in zip(boxes, class_ids, confidences):
             x_min, y_min, x_max, y_max = map(int, box)
             color = QColor(CLASS_COLORS[class_id % len(CLASS_COLORS)])  # Assign color per class
+            rgb_color = color.getRgb()[:3]  # Get RGB values for OpenCV
 
             # Product Details
             product_name = PRODUCT_DETAILS.get(class_id, {}).get("name", f"Product {class_id}")
@@ -86,21 +95,31 @@ class YOLOThread(QThread):
                 "box": (x_min, y_min, x_max, y_max)  # Store box for removal
             })
 
-            # Draw bounding box with thicker lines
-            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color.getRgb()[:3], thickness=3)  # Increase thickness to 3
+            # Draw semi-transparent black background for the bounding box
+            overlay = frame.copy()
+            cv2.rectangle(overlay, (x_min, y_min), (x_max, y_max), rgb_color, -1)  # Black fill
+            alpha = .15  # Opacity (15% transparency)
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
-            # Add Label with fill and dynamic text color
+            # Draw bounding box with a specific color (e.g., white)
+            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), color.getRgb()[:3], thickness=2)
+
+            # Add Label with white text on a semi-transparent black background
             label = f"{product_name} ({weight})"
             text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
-            text_x = x_min + (x_max - x_min - text_size[0]) // 2
-            text_y = y_min + (y_max - y_min + text_size[1]) // 2
+            text_x = x_min + 5  # Padding from the left
+            text_y = y_min - 5  # Padding above the bounding box
 
-            # Ensure label is visible with white background
-            cv2.rectangle(frame, (text_x - 5, text_y - text_size[1] - 5), (text_x + text_size[0] + 5, text_y + 5), (255, 255, 255), -1)
-            cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)  # Black text
+            # Draw semi-transparent black background for the text
+            cv2.rectangle(frame, (text_x - 2, text_y - text_size[1] - 2), (text_x + text_size[0] + 2, text_y + 2), rgb_color, -1)
+            alpha = 1 # Opacity (100% transparency)
+            overlay = frame.copy()
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
+
+            # Add white text
+            cv2.putText(frame, label, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)  # White text
 
         return frame
-
 
 class CameraSettings(QWidget):
     def __init__(self):
@@ -369,7 +388,7 @@ class GroceryCheckoutApp(QWidget):
             self.yolo_thread.result_signal.connect(self.display_result)
             self.yolo_thread.start()
 
-    def display_result(self, annotated_frame, detected_products):
+    def display_result(self, annotated_frame, detected_products, detection_time):
         # Store the annotated frame for later use
         self.last_annotated_frame = annotated_frame
 
@@ -381,6 +400,33 @@ class GroceryCheckoutApp(QWidget):
             print("Error: Annotated image is null.")
             return
 
+        # Draw the horizontal bar and display the detection time
+        bar_height = 40
+        bar_width = int(annotated_frame.shape[1] * 0.8)  # 80% of the frame width
+        bar_x = (annotated_frame.shape[1] - bar_width) // 2
+        bar_y = annotated_frame.shape[0] - bar_height  # Position at the bottom with 10px margin
+
+        # Determine bar color based on detection time
+        if detection_time <= 1:
+            bar_color = (49, 96, 61)  # deepGreen
+        elif detection_time <= 3:
+            bar_color = (255, 167, 79)  # kindaOrange
+        else:
+            bar_color = (210, 61, 45)  # AlmostRed
+
+        # Draw the bar
+        cv2.rectangle(annotated_frame, (bar_x, bar_y), (bar_x + bar_width, bar_y + bar_height), bar_color, -1)
+
+        # Add text indicating the detection time
+        text = f"Detection Time: {detection_time:.2f} sec"
+        text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+        text_x = bar_x + (bar_width - text_size[0]) // 2
+        text_y = bar_y + (bar_height + text_size[1]) // 2  # Center text vertically within the bar
+        cv2.putText(annotated_frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+        # Convert the annotated frame with the bar to QImage
+        annotated_image = QImage(annotated_frame.data, annotated_frame.shape[1], annotated_frame.shape[0], QImage.Format_RGB888)
+        
         # Display the annotated image in the scanned_label
         self.scanned_label.setPixmap(QPixmap.fromImage(annotated_image))
 

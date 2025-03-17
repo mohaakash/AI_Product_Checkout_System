@@ -2,8 +2,8 @@ import os
 import cv2
 
 # Define paths
-image_folder = 'A:/Academic/CSE498R/Dataset/Data'  # Path to the folder containing images
-annotation_folder = 'A:/Academic/CSE498R/Dataset/Label/Labels'  # Path to the folder containing YOLO annotation files
+image_folder = 'A:/Academic/CSE498R/Dataset/images_greyscale'  # Path to the folder containing images
+annotation_folder = 'A:/Academic/CSE498R/Dataset/labels_greyscale'  # Path to the folder containing YOLO annotation files
 output_folder = 'A:/Academic/CSE498R/Dataset/CheckData'  # Path to save the annotated images
 
 # Create output folder if it doesn't exist
@@ -22,15 +22,6 @@ class_names = [
     "Mojo Can",
     "Speed bottle",
     "Nescafe Classic glass jar small",
-    "Ahmed canned corn-flour",
-    "Genial Nature Masala Tea",
-    "Jumbo Vegetable Spring Roll",
-    "Orange Juice with Basil Seed",
-    "Ghee Premium",
-    "Dettol Skincare Refill Liquid Handwash",
-    "Whitening Mouthwash WhitePlus",
-    "club de nuit man perfume body spray",
-    "Mr. Noodles Easy Instant Noodles magic masala"
 ]
 
 # Define class colors (you can add more colors if needed)
@@ -45,15 +36,6 @@ class_colors = [
     (0, 128, 0),    # Class 7: Dark Green
     (0, 0, 128),    # Class 8: Navy
     (128, 128, 0),  # Class 9: Olive
-    (128, 0, 128),  # Class 10: Purple
-    (0, 128, 128),  # Class 11: Teal
-    (192, 192, 192),# Class 12: Silver
-    (128, 128, 128),# Class 13: Gray
-    (255, 165, 0),  # Class 14: Orange
-    (255, 192, 203),# Class 15: Pink
-    (165, 42, 42),  # Class 16: Brown
-    (0, 0, 0),      # Class 17: Black
-    (255, 255, 255) # Class 18: White
 ]
 
 # Set rectangle thickness

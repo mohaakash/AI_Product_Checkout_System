@@ -1,0 +1,19 @@
+# Paths
+train: A:/Academic/CSE498R/Dataset/yolo_data/train/images  
+val: A:/Academic/CSE498R/Dataset/yolo_data/val/images    
+
+# Number of classes
+nc: 10
+
+# Class names
+names: 
+  - '8941194003717'
+  - '8941160034059'
+  - '8936029050103'
+  - '8941100313435'
+  - '745110769262'
+  - '8941161004914'
+  - '8941189600099'
+  - '8941189600020'
+  - '4941189600266'
+  - '901058001617'
