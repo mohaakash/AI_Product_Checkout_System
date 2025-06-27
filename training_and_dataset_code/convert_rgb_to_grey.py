@@ -4,10 +4,10 @@ import shutil
 import cv2
 
 # Paths
-dataset_dir = "A:/Academic/CSE498R/Dataset/yolo_data/train/images"  # Folder where original images are stored
-labels_dir = "A:/Academic/CSE498R/Dataset/yolo_data/train/labels"   # Folder where YOLO labels are stored
-output_dir = "A:/Academic/CSE498R/Dataset/images_greyscale"  # Output folder for grayscale images
-output_labels_dir = "A:/Academic/CSE498R/Dataset/labels_greyscale"  # Output folder for copied labels
+dataset_dir = "C:/Users/Akash/Downloads/Telegram Desktop/afterSplit/afterSplit/train/images"  # Folder where original images are stored
+labels_dir = "C:/Users/Akash/Downloads/Telegram Desktop/afterSplit/afterSplit/train/labels"   # Folder where YOLO labels are stored
+output_dir = "C:/Users/Akash/Downloads/Telegram Desktop/afterSplit/afterSplit/train/images"  # Output folder for grayscale images
+output_labels_dir = "C:/Users/Akash/Downloads/Telegram Desktop/afterSplit/afterSplit/train/labels"  # Output folder for copied labels
 
 # Create output directories if they don't exist
 os.makedirs(output_dir, exist_ok=True)
