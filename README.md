@@ -33,42 +33,42 @@
   <tr>
     <td align="center">
       <a href="https://www.python.org/">
-        <img src="https://github.com/user-attachments/assets/89399626-858c-42c2-a58e-17f1b8275b8c" alt="Python" width="50">
+        <img src="https://avatars.githubusercontent.com/u/1525981?s=200&v=4" alt="Python" width="50">
         <br>
         <sub><b>Python</b></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://pytorch.org/">
-        <img src="https://github.com/user-attachments/assets/e7a7e24b-c1a7-411a-811a-3bc2c611e4a9" alt="PyTorch" width="50">
+        <img src="https://images.seeklogo.com/logo-png/34/1/pytorch-logo-png_seeklogo-341270.png" alt="PyTorch" width="50">
         <br>
         <sub><b>PyTorch</b></sub>
       </a>
     </td>
     <td align="center">
-      <a href="https://github.com/ultralytics/yolov5">
-        <img src="https://github.com/user-attachments/assets/41305eda-53c9-4517-95f6-332233e5e29f" alt="YOLOv8" width="50">
+      <a href="https://docs.ultralytics.com/">
+        <img src="https://github.com/ultralytics/assets/raw/main/partners/logo-ultralytics-hub.png" alt="YOLOv8" width="50">
         <br>
         <sub><b>YOLOv8</b></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://opencv.org/">
-        <img src="https://github.com/user-attachments/assets/a294518c-f8a6-4b6f-8b2c-27d1e94a76b2" alt="OpenCV" width="50">
+        <img src="https://opencv.org/wp-content/uploads/2022/05/logo.png" alt="OpenCV" width="50">
         <br>
         <sub><b>OpenCV</b></sub>
       </a>
     </td>
     <td align="center">
-      <a href="https.cv.org/">
-        <img src="https://github.com/user-attachments/assets/a294518c-f8a6-4b6f-8b2c-27d1e94a76b2" alt="OpenCV" width="50">
+      <a href="https://numpy.org/">
+        <img src="https://numpy.org/images/logo.svg" alt="OpenCV" width="50">
         <br>
         <sub><b>NumPy</b></sub>
       </a>
     </td>
     <td align="center">
       <a href="https://www.qt.io/qt-for-python">
-        <img src="https://github.com/user-attachments/assets/01a3a07c-3f6a-4b7e-8b3a-3c3a3d3a3d3a" alt="PyQt5" width="50">
+        <img src="https://miro.medium.com/v2/resize:fit:720/format:webp/1*FNsbyTgTKi766hi9MknDwQ.png" alt="PyQt5" width="50">
         <br>
         <sub><b>PyQt5</b></sub>
       </a>
